@@ -1,0 +1,30 @@
+return {
+  cmd = { "typescript-language-server", "--stdio" },
+  filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact", "typescript.tsx" },
+  root_markers = { "tsconfig.json", "jsconfig.json", "package.json", ".git" },
+  init_options = {
+    hostInfo = "neovim",
+    preferences = {
+      quotePreference = "single",
+      tabSize = 2,
+      indentSize = 2,
+      insertSpaces = true,
+      includeInlayParameterNameHints = "all",
+      includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+      includeInlayFunctionParameterTypeHints = true,
+      includeInlayVariableTypeHints = true,
+      includeInlayPropertyDeclarationTypeHints = true,
+      includeInlayFunctionLikeReturnTypeHints = true,
+      includeInlayEnumMemberValueHints = true,
+      organizeImportsCollation = "ordinal",
+      organizeImportsIgnoreCase = false,
+      organizeImportsNumericCollation = false,
+    },
+  },
+  -- settings = {
+  --   typescript = {},
+  --   javascript = {},
+  --   typescriptreact = {},
+  --   javascriptreact = {},
+  -- },
+}

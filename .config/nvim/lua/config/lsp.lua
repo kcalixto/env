@@ -1,0 +1,148 @@
+local mason = require("mason")
+local mason_lspconfig = require("mason-lspconfig")
+local mason_null_ls = require("mason-null-ls")
+local conform = require("conform")
+local lsp = vim.lsp
+local diagnostic = vim.diagnostic
+
+mason.setup()
+
+-- LSP configuration
+local install_lsp = {
+  "clangd",
+  "gopls",
+  "html",
+  "jsonls",
+  "lua_ls",
+  "pyright",
+  "rust_analyzer",
+  "tailwindcss",
+  "ts_ls",
+  "eslint",
+}
+
+lsp.enable(install_lsp)
+
+lsp.config("lua_ls", {
+  on_init = function(client)
+    if client.workspace_folders then
+      local path = client.workspace_folders[1].name
+      if
+        path ~= vim.fn.stdpath("config")
+        and (vim.uv.fs_stat(path .. "/.luarc.json") or vim.uv.fs_stat(path .. "/.luarc.jsonc"))
+      then
+        return
+      end
+    end
+
+    client.config.settings.Lua = vim.tbl_deep_extend("force", client.config.settings.Lua, {
+      runtime = {
+        -- Tell the language server which version of Lua you're using (most
+        -- likely LuaJIT in the case of Neovim)
+        version = "LuaJIT",
+        -- Tell the language server how to find Lua modules same way as Neovim
+        -- (see `:h lua-module-load`)
+        path = {
+          "lua/?.lua",
+          "lua/?/init.lua",
+        },
+      },
+      -- Make the server aware of Neovim runtime files
+      workspace = {
+        checkThirdParty = false,
+        library = {
+          vim.env.VIMRUNTIME,
+          -- Depending on the usage, you might want to add additional paths
+          -- here.
+          -- '${3rd}/luv/library'
+          -- '${3rd}/busted/library'
+        },
+        -- Or pull in all of 'runtimepath'.
+        -- NOTE: this is a lot slower and will cause issues when working on
+        -- your own configuration.
+        -- See https://github.com/neovim/nvim-lspconfig/issues/3189
+        -- library = {
+        --   vim.api.nvim_get_runtime_file('', true),
+        -- }
+      },
+    })
+  end,
+  settings = {
+    Lua = {},
+  },
+})
+
+-- Formatting configuration
+local install_formatters = {
+  "prettier",
+  "goimports",
+  "gofmt",
+  "black",
+  "stylua",
+}
+
+conform.setup({
+  default_format_opts = { timeout_ms = 2000 },
+  format_on_save = false,
+  formatters_by_ft = {
+    css = { "prettier" },
+    scss = { "prettier" },
+    html = { "prettier" },
+    javascript = { "prettier" },
+    javascriptreact = { "prettier" },
+    typescript = { "prettier" },
+    typescriptreact = { "prettier" },
+    json = { "prettier" },
+    go = { "gofmt", "goimports" },
+    python = { "black" },
+    lua = { "stylua" },
+  },
+})
+
+-- Mason installation
+mason_lspconfig.setup({
+  ensure_installed = install_lsp,
+  automatic_installation = true,
+})
+
+mason_null_ls.setup({
+  ensure_installed = install_formatters,
+  automatic_installation = true,
+})
+
+-- Diagnostic configuration
+diagnostic.config({
+  virtual_lines = false,
+  virtual_text = true,
+  underline = true,
+  update_in_insert = false,
+  severity_sort = true,
+  float = {
+    source = "if_many",
+    scope = "cursor",
+  },
+  signs = {
+    text = {
+      [diagnostic.severity.ERROR] = "󰅚 ",
+      [diagnostic.severity.WARN] = "󰀪 ",
+      [diagnostic.severity.INFO] = "󰋽 ",
+      [diagnostic.severity.HINT] = "󰌶 ",
+    },
+  },
+})
+
+-- FLoating window configuration
+-- "bold": Bold line box.
+-- "double": Double-line box.
+-- "none": No border.
+-- "rounded": Like "single", but with rounded corners ("╭" etc.).
+-- "shadow": Drop shadow effect, by blending with the background.
+-- "single": Single-line box.
+-- "solid": Adds padding by a single whitespace cell.
+lsp.util.open_floating_preview = (function(orig)
+  return function(contents, syntax, opts, ...)
+    opts = opts or {}
+    opts.border = "solid"
+    return orig(contents, syntax, opts, ...)
+  end
+end)(lsp.util.open_floating_preview)
