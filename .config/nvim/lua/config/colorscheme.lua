@@ -1,0 +1,8 @@
+vim.cmd.colorscheme("WinterIsComing-dark-blue-color-theme")
+vim.cmd("hi @tag guifg=#E8A75D")
+vim.cmd("hi @tag.builtin guifg=#87aff4")
+vim.cmd("hi @tag.attribute guifg=#ff9cac")
+vim.cmd("hi @tag.delimiter guifg=#87aff4")
+vim.cmd("hi ZenBg guibg=#030c1a")
+vim.cmd("hi NormalFloat guibg=#011423")
+vim.cmd("hi CursorLine guibg=NONE")

@@ -1,5 +1,9 @@
 # env
 
+## Nvim 
+> symlink nvim config folder 
+```bash
+ln -s $(pwd)/.config/nvim ~/.config/nvim
 ```
 
 ## Tmux
