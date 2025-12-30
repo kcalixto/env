@@ -7,11 +7,11 @@ ln -s $(pwd)/.config/nvim ~/.config/nvim
 ```
 
 ## Tmux
-clone tmux plugin manager
-```
-git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-```
 soft link
+```bash
+ln $(pwd)/.tmux.conf ~/.tmux.conf
 ```
-ln .tmux.conf ~/.tmux.conf
+
+```
+```
 ```
