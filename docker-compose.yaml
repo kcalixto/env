@@ -1,0 +1,136 @@
+name: armbian
+
+services:
+  
+  pihole: # More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      # DNS Ports
+      - 192.168.7.6:53:53/tcp
+      - 192.168.7.6:53:53/udp
+      # Default HTTP Port
+      - "80:80/tcp"
+      # Default HTTPs Port. FTL will generate a self-signed certificate
+      - "443:443/tcp"
+      # Uncomment the line below if you are using Pi-hole as your DHCP server
+      #- "67:67/udp"
+      # Uncomment the line below if you are using Pi-hole as your NTP server
+      #- "123:123/udp"
+    environment:
+      # Set the appropriate timezone for your location (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g:
+      TZ: 'America/Sao_Paulo'
+      # Set a password to access the web interface. Not setting one will result in a random password being assigned
+      FTLCONF_webserver_api_password: '12345678'
+      # If using Docker's default `bridge` network setting the dns listening mode should be set to 'ALL'
+      FTLCONF_dns_listeningMode: 'ALL'
+      # PIHOLE_DNS_1: 1.1.1.1 # the main DNS resolver 
+      # PIHOLE_DNS_2: 8.8.8.8 # secondary DNS resolver
+    # Volumes store your data between container upgrades
+    # dns:
+    #   - 127.0.0.1 # system resolver
+    volumes:
+      # For persisting Pi-hole's databases and common configuration file
+      - '~/.pihole/etc:/etc/pihole'
+      # Uncomment the below if you have custom dnsmasq config files that you want to persist. Not needed for most starting fresh with Pi-hole v6. If you're upgrading from v5 you and have used this directory before, you should keep it enabled for the first v6 container start to allow for a complete migration. It can be removed afterwards. Needs environment variable FTLCONF_misc_etc_dnsmasq_d: 'true'
+      #- './etc-dnsmasq.d:/etc/dnsmasq.d'
+    cap_add:
+      # See https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
+      # Required if you are using Pi-hole as your DHCP server, else not needed
+      - NET_ADMIN
+      # Required if you are using Pi-hole as your NTP client to be able to set the host's system time
+      - SYS_TIME
+      # Optional, if Pi-hole should get some more processing time
+      - SYS_NICE
+    restart: unless-stopped
+
+  heimdall:
+    image: lscr.io/linuxserver/heimdall:latest
+    container_name: heimdall
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - ALLOW_INTERNAL_REQUESTS=false #optional
+    volumes:
+      - /.config/heimdall:/config
+    ports:
+      - 8080:80
+      - 8443:443
+    restart: unless-stopped
+
+  affine:
+    image: ghcr.io/toeverything/affine:${AFFINE_REVISION:-stable}
+    container_name: affine_server
+    ports:
+      - 3010:3010
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      affine_migration:
+        condition: service_completed_successfully
+    volumes:
+      # custom configurations
+      - ${AFFINE_UPLOAD_LOCATION}:/root/.affine/storage
+      - ${AFFINE_CONFIG_LOCATION}:/root/.affine/config
+    env_file:
+      - .env
+    environment:
+      - REDIS_SERVER_HOST=redis
+      - DATABASE_URL=postgresql://${AFFINE_DB_USERNAME}:${AFFINE_DB_PASSWORD}@postgres:5432/${AFFINE_DB_DATABASE:-affine}
+      - AFFINE_INDEXER_ENABLED=false
+    restart: unless-stopped
+
+  affine_migration:
+    image: ghcr.io/toeverything/affine:${AFFINE_REVISION:-stable}
+    container_name: affine_migration_job
+    volumes:
+      # custom configurations
+      - ${AFFINE_UPLOAD_LOCATION}:/root/.affine/storage
+      - ${AFFINE_CONFIG_LOCATION}:/root/.affine/config
+    command: ['sh', '-c', 'node ./scripts/self-host-predeploy.js']
+    env_file:
+      - .env
+    environment:
+      - REDIS_SERVER_HOST=redis
+      - DATABASE_URL=postgresql://${AFFINE_DB_USERNAME}:${AFFINE_DB_PASSWORD}@postgres:5432/${AFFINE_DB_DATABASE:-affine}
+      - AFFINE_INDEXER_ENABLED=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis
+    container_name: affine_redis
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: affine_postgres
+    volumes:
+      - ${AFFINE_DB_DATA_LOCATION}:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${AFFINE_DB_USERNAME}
+      POSTGRES_PASSWORD: ${AFFINE_DB_PASSWORD}
+      POSTGRES_DB: ${AFFINE_DB_DATABASE:-affine}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+      # you better set a password for you database
+      # or you may add 'POSTGRES_HOST_AUTH_METHOD=trust' to ignore postgres security policy
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test:
+        ['CMD', 'pg_isready', '-U', "${AFFINE_DB_USERNAME}", '-d', "${AFFINE_DB_DATABASE:-affine}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
